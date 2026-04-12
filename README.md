@@ -1,15 +1,14 @@
 # Patch34: REAPER Timeline Screensaver
 
-A REAPER screensaver script. Media items across a large grid physically move and change color in real time, forming animated diagonal wave patterns.
+A REAPER screensaver script. Media items across a large grid physically move and change color in real time, forming animated diagonal wave patterns. Absolutely without any practical usage.
 
 ## What it does
 
 The script creates a new project tab with a 120 × 30 grid of media items — 3 600 items in total. Every frame, each item's position, length, and color are recalculated from a sine-wave formula and written directly to the REAPER timeline via the API. The result is a diagonal traveling wave that ripples across the arrange view like a snake pattern.
 
 A small GFX window shows the current mode name in animated rainbow lettering.
-
-
-
+<br>
+<br>
 <p align="center">
   <img src="./github_readme_light_5s_600w.gif" alt="Demo" width="600">
 </p>
