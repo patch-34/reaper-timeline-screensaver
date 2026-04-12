@@ -40,6 +40,10 @@ A small GFX window shows the current mode name in animated rainbow lettering.
 The script opens in a **new project tab** so your current project is not affected. On exit it automatically closes that tab and returns you to the previous one.
 
 ---
+<p align="center">
+  <img src="./Screenshot_2026-04-12_at_23.05.30.png" alt="Demo" width="548">
+</p>
+
 
 ## Configuration
 
