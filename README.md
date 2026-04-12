@@ -8,6 +8,8 @@ The script creates a new project tab with a 120 × 30 grid of media items — 3 
 
 A small GFX window shows the current mode name in animated rainbow lettering.
 
+
+
 <p align="center">
   <img src="./github_readme_light_5s_600w.gif" alt="Demo" width="600">
 </p>
