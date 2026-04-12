@@ -1,132 +1,94 @@
-# Animation Model
+# How the animation works
 
-## Core idea
+## The core idea
 
-The animation holds no mutable state except time `t`. Every frame, each of the 3,600 items is computed independently by a pure function:
+Every frame, each of the 3,600 items on the timeline gets three things recalculated: its length, its position, and its color. There's no physics, no object list, no history. Just one math function called 3,600 times per frame:
 
 ```
-(col, row, t)  →  (length, offset, color)
+(column, row, time)  →  (length, position, color)
 ```
-
-No object lists, no physics, no history — just one mathematical function evaluated 3,600 times.
 
 ---
 
-## Coordinate system
+## Step 1 — normalize the grid coordinates
 
-Before the wave calculation, item coordinates are normalized to the [0, 1] range:
+Before any math happens, column and row numbers get converted to a 0–1 range:
 
 ```lua
-local nx = col / GRID_W   -- 0.0 .. 1.0 horizontal
-local ny = row / GRID_H   -- 0.0 .. 1.0 vertical
+nx = col / 120   -- 0.0 on the left,  1.0 on the right
+ny = row / 30    -- 0.0 on the top,   1.0 on the bottom
 ```
 
-This makes the formula grid-size agnostic — `GRID_W = 60` and `GRID_W = 240` produce the same wave shape.
+This makes the formula work the same regardless of grid size.
 
 ---
 
-## Snake formula
+## Step 2 — compute the wave
 
 ```lua
-local phase    = (nx + ny) * 6.0 - t * 3.5
-local wave     = math.sin(phase)
-local wave2    = math.sin(phase * 2.3 + 1.5) * 0.4
-local combined = wave + wave2
+phase    = (nx + ny) * 6.0 - t * 3.5
+wave     = sin(phase)
+wave2    = sin(phase * 2.3 + 1.5) * 0.4
+combined = wave + wave2
 ```
 
-**`(nx + ny) * 6.0`** — spatial phase. Summing nx and ny produces diagonal isolines: all points on the same grid diagonal share the same phase value. The multiplier 6.0 sets the spatial frequency — how many full waves fit across the diagonal.
+**`nx + ny`** — adding the two coordinates together means that items sitting on the same diagonal share the same phase value. This is what makes the wave travel diagonally rather than horizontally or vertically.
 
-**`- t * 3.5`** — time offset. As `t` grows each frame, the phase decreases and the wave travels in the direction of increasing (nx + ny), i.e. toward the bottom-right.
+**`* 6.0`** — controls how many wave crests fit across the screen at once. Higher = more crests, shorter wavelength.
 
-**`wave2 = sin(phase * 2.3 + 1.5) * 0.4`** — a second harmonic with an irrational frequency ratio (2.3). Because it's not a multiple of the fundamental, the pattern never repeats periodically. The phase offset of 1.5 breaks symmetry around zero.
+**`- t * 3.5`** — subtracting time from the phase makes the wave move forward each frame. The bigger this number, the faster it travels.
 
-**`combined = wave + wave2`** — sum of both harmonics. Range ≈ [−1.4, +1.4].
+**`wave2`** — a second sine wave layered on top of the first. Its frequency (2.3) isn't a clean multiple of the first wave's frequency, so the two never perfectly repeat together. This is what makes the motion look organic and snake-like rather than a simple smooth pulse.
+
+**`combined`** — the sum of both waves. Ranges roughly from −1.4 to +1.4.
 
 ---
 
-## Three output values
+## Step 3 — turn the wave into item properties
 
-### Item length (`len_mult` → `D_LENGTH`)
-
-```lua
-local len_mult = 0.1 + 0.9 * math.max(0, combined / 1.4)
-```
-
-`math.max(0, ...)` clips negative values: when the wave is in a trough, the item sits at its minimum length rather than disappearing. Dividing by 1.4 normalizes `combined` to [0, 1]. Result: `len_mult` ∈ [0.1, 1.0] — items never collapse entirely.
+### Length
 
 ```lua
-local new_len = math.max(0.002, BASE_LENGTH * len_mult)
+len_mult = 0.1 + 0.9 * max(0, combined / 1.4)
 ```
 
-`BASE_LENGTH = 0.12` seconds × `len_mult` gives the final length in REAPER timeline units.
+When the wave is at a crest, the item is near its maximum length. When it's in a trough, the item shrinks to 10% of its base size. The `max(0, ...)` clamps negative values so items never fully disappear.
 
-### Item position (`pos_off` → `D_POSITION`)
+### Position
 
 ```lua
-local pos_off = combined * CELL_WIDTH * 0.4
+pos_off = combined * 0.06
 ```
 
-Offset from the item's base position. The sign of `combined` determines direction: a wave crest pushes the item forward, a trough pulls it back. `CELL_WIDTH * 0.4 = 0.06` seconds is the maximum displacement — less than half the inter-item spacing, so items never overlap.
+Items shift slightly forward or backward from their resting position depending on whether the wave is pushing or pulling at that moment. The maximum shift is 0.06 seconds on the timeline — small enough that items never overlap each other.
 
-### Color (`hue` → `I_CUSTOMCOLOR`)
+### Color
 
 ```lua
-local hue = (nx + ny) * 0.3 + t * 0.25
+hue        = (nx + ny) * 0.3 + t * 0.25
+brightness = 0.4 + 0.6 * len_mult
 ```
 
-Hue depends on position and drifts slowly over time (`t * 0.25`). The diagonal color bands move more slowly than the length wave, creating a visual layering between the two animations.
-
-```lua
-local brightness = 0.4 + 0.6 * len_mult
-```
-
-Brightness is tied to length: long items are bright, short ones are dark. This reinforces the sense of depth.
-
-The final color is assembled via HSV → RGB → native REAPER color in `hsv_to_native`.
+The hue slowly drifts over time and varies by diagonal position, so colored bands travel across the grid independently of the length wave. Brightness is tied to length — long items are bright, short items are dim — which makes the wave feel three-dimensional.
 
 ---
 
-## Delta optimization
+## Step 4 — write only what changed
 
-Before each `SetMediaItemInfo_Value` call, the new value is compared to the previous one:
+Before updating an item, the script checks whether the new value actually differs from the last frame:
 
 ```lua
-if math.abs(new_len - prev_length[row][col]) > 0.001 then
-    reaper.SetMediaItemInfo_Value(item, "D_LENGTH", new_len)
-    prev_length[row][col] = new_len
+if math.abs(new_len - prev_len) > 0.001 then
+    SetMediaItemInfo_Value(item, "D_LENGTH", new_len)
 end
 ```
 
-On most frames most items change very little — the delta check skips several thousand API calls per frame.
+On most frames, most items barely move, so the majority of API calls get skipped. This is the main performance optimization.
 
-`PreventUIRefresh(1)` / `PreventUIRefresh(-1)` wrap the entire update loop so REAPER batches all redraws to the end of the frame rather than re-rendering after each call.
-
----
-
-## Data flow for one frame
-
-```
-reaper.time_precise()
-    │
-    ▼
-dt = now - last_frame_time
-t  = t + dt * SPEED
-    │
-    ▼  (for each of the 3,600 items)
-compute_wave(col, row, t)
-    │
-    ├─→ len_mult  →  D_LENGTH
-    ├─→ pos_off   →  D_POSITION
-    └─→ hue       →  I_CUSTOMCOLOR
-    │
-    ▼
-reaper.UpdateArrange()
-```
-
-`dt` is taken from real elapsed time, not a fixed step. This means that if FPS drops, `t` jumps by a larger increment and the animation stays at the correct speed rather than slowing down.
+The entire update loop is also wrapped in `PreventUIRefresh(1/−1)` so REAPER redraws the timeline only once per frame, not after every single item change.
 
 ---
 
-## Why the diagonals look like a snake
+## Why it looks like a snake
 
-The key is `phase = (nx + ny) * 6.0`. Isolines of equal phase are lines of the form `nx + ny = const` — diagonals at 45°. As `t` grows, these diagonals slide along the (nx + ny) axis, moving from the top-left toward the bottom-right. The second harmonic breaks the monotony: instead of a clean sinusoid the result is an uneven pulse that resembles the movement of a snake's body.
+The diagonal wave direction comes from using `nx + ny` as the spatial coordinate. Lines of equal phase run diagonally at 45°, and as time advances those lines slide down-right across the grid. The second harmonic breaks the smooth regularity — instead of a clean rolling wave you get an uneven, wriggling motion that reads as a snake moving through the grid.
