@@ -1,8 +1,10 @@
--- Patch34
--- REAPER Timeline Screensaver
--- Items physically move and pulse as traveling waves across a 120×30 grid. Opens in a new project tab.
---
--- https://github.com/patch-34
+-- @description REAPER Timeline Screensaver
+-- @version 1.0.0
+-- @author Aleksei Vorobev / Patch34
+-- @link
+--   GitHub repository https://github.com/patch-34/reaper-timeline-screensaver
+-- @about
+--   Animates media items in a separate REAPER project tab as traveling waves.
 
 local GRID_W        = 120
 local GRID_H        = 30
@@ -80,7 +82,7 @@ local function setup()
     local track = reaper.GetTrack(0, row - 1)
     if not track then
       reaper.PreventUIRefresh(-1)
-      reaper.Undo_EndBlock("Patch34: Wave Motion - Setup (failed)", -1)
+      reaper.Undo_EndBlock("Wave Motion - Setup (failed)", -1)
       return false
     end
     tracks[row] = track
@@ -126,7 +128,7 @@ local function setup()
 
   reaper.TrackList_AdjustWindows(true)
   reaper.UpdateArrange()
-  reaper.Undo_EndBlock("Patch34: Wave Motion - Setup", -1)
+  reaper.Undo_EndBlock("Wave Motion - Setup", -1)
   return true
 end
 
@@ -168,7 +170,7 @@ end
 
 ---------------------------------------------------------------------
 local function init_gui()
-  gfx.init("Patch34 | [Esc] quit", 450, 36, 0, 550, 1000)
+  gfx.init("Timeline Screensaver | [Esc] quit", 450, 36, 0, 550, 1000)
   gfx.setfont(1, "Roboto", 18)
 end
 

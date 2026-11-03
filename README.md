@@ -1,6 +1,8 @@
-# Patch34: REAPER Timeline Screensaver
+# REAPER Timeline Screensaver
 
-A REAPER screensaver script. Media items across a large grid physically move and change color in real time, forming animated diagonal wave patterns. Absolutely without any practical usage.
+**English** · [Русский](README_RU.md)
+
+A REAPER screensaver script. Media items across a large grid physically move and change color in real time, forming animated diagonal wave patterns. 
 
 ## What it does
 
@@ -23,7 +25,13 @@ A small GFX window shows the current mode name in animated rainbow lettering.
 
 ## Installation
 
-1. Copy `Patch34_REAPER_Timeline_Screensaver.lua` to your REAPER scripts folder:
+### ReaPack
+
+Import the [Patch34 ReaPack catalog](https://raw.githubusercontent.com/patch-34/patch34-reapack/main/index.xml) using **Extensions → ReaPack → Import repositories…** and install **REAPER Timeline Screensaver** through **Browse packages**.
+
+### Manual installation
+
+1. Copy `REAPER_Timeline_Screensaver.lua` to your REAPER scripts folder:
    - macOS: `~/Library/Application Support/REAPER/Scripts/`
    - Windows: `%APPDATA%\REAPER\Scripts\`
 2. In REAPER: **Actions → Load ReaScript** → select the file
@@ -76,6 +84,8 @@ If the animation stutters, try:
 
 ---
 
-## License
+## License and credits
 
-MIT — do whatever you want with it.
+Distributed under the [MIT License](LICENSE).
+
+Author: [Aleksei Vorobev / Patch34](https://github.com/patch-34).
